@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  solswap-backend:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL}
+      - SOLANA_COMMITMENT=confirmed
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - COINGECKO_API_KEY=${COINGECKO_API_KEY}
+      - PAYSTACK_SECRET=${PAYSTACK_SECRET}
+      - FLUTTERWAVE_SECRET=${FLUTTERWAVE_SECRET}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - APP_BASE_URL=${APP_BASE_URL}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/chat/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=solswap
+      - POSTGRES_USER=solswap
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - solswap-backend
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
